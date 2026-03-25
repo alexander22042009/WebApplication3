@@ -1,0 +1,19 @@
+@model HouseDetailsViewModel
+@{
+    ViewBag.Title = "House Details";
+}
+
+<h2 class="text-center">@ViewBag.Title</h2>
+<hr />
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <img src="@Model.ImageUrl" class="card-img-top" alt="@Model.Title" />
+            <div class="card-body">
+                <h5 class="card-title">@Model.Title</h5>
+                <p class="card-text">@Model.Address</p>
+            </div>
+        </div>
+    </div>
+</div>

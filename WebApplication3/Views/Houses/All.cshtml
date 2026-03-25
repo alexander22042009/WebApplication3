@@ -1,0 +1,22 @@
+@model AllHousesViewModel
+@{
+    ViewBag.Title = "All Houses";
+}
+
+<h2 class="text-center">@ViewBag.Title</h2>
+<hr />
+
+<div class="row">
+    @foreach (var house in Model.Houses)
+    {
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <img src="@house.ImageUrl" class="card-img-top" alt="@house.Title" />
+                <div class="card-body">
+                    <h5 class="card-title">@house.Title</h5>
+                    <p class="card-text">@house.Address</p>
+                </div>
+            </div>
+        </div>
+    }
+</div>
