@@ -1,3 +1,4 @@
+using HouseRentingSystemApi.Authorization;
 using HouseRentingSystemApi.Data.Entities;
 using HouseRentingSystemApi.Models.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -16,7 +17,9 @@ namespace HouseRentingSystemApi.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration configuration;
 
-        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration configuration)
+        public AuthController(
+            UserManager<ApplicationUser> userManager,
+            IConfiguration configuration)
         {
             _userManager = userManager;
             this.configuration = configuration;
@@ -45,11 +48,13 @@ namespace HouseRentingSystemApi.Controllers
             {
                 return Unauthorized(new { message = "Invalid email or password" });
             }
-            var token = GenerateJwtToken(user);
+            var roles = await _userManager.GetRolesAsync(user);
+            var token = GenerateJwtToken(user, roles);
             return Ok(new
             {
                 message = "Login successful",
-                token
+                token,
+                roles
             });
 
         }
@@ -96,6 +101,7 @@ namespace HouseRentingSystemApi.Controllers
 
             if (result.Succeeded)
             {
+                await _userManager.AddToRoleAsync(newUser, AppRoles.Customer);
                 return Ok(new
                 {
                     message = "Successfully registered",
@@ -112,7 +118,7 @@ namespace HouseRentingSystemApi.Controllers
             });
         }
 
-        private string GenerateJwtToken(ApplicationUser user)
+        private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
         {
             var jwtSection = configuration.GetSection("Jwt");
             var key = jwtSection["Key"]!;
@@ -125,6 +131,11 @@ namespace HouseRentingSystemApi.Controllers
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Name, user.UserName!)
             };
+
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
             var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);

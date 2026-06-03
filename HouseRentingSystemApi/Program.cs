@@ -1,18 +1,21 @@
 
+using HouseRentingSystemApi.Authorization;
 using HouseRentingSystemApi.Data;
 using HouseRentingSystemApi.Data.Entities;
+using HouseRentingSystemApi.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 
 namespace HouseRentingSystemApi
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +68,7 @@ namespace HouseRentingSystemApi
 
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
+            builder.Services.AddScoped<IHouseService, HouseService>();
 
             builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
             {
@@ -96,11 +100,14 @@ namespace HouseRentingSystemApi
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwtSection["Issuer"],
                     ValidAudience = jwtSection["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!)),
+                    RoleClaimType = ClaimTypes.Role
                 };
             });
 
             var app = builder.Build();
+
+            await SeedRolesAsync(app.Services);
 
             if (app.Environment.IsDevelopment())
             {
@@ -119,6 +126,47 @@ namespace HouseRentingSystemApi
             app.MapControllers();
 
             app.Run();
+        }
+
+        private static async Task SeedRolesAsync(IServiceProvider services)
+        {
+            using var scope = services.CreateScope();
+            var provider = scope.ServiceProvider;
+            var roleManager = provider.GetRequiredService<RoleManager<IdentityRole>>();
+            var userManager = provider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            foreach (var roleName in new[] { AppRoles.Customer, AppRoles.Agent })
+            {
+                if (!await roleManager.RoleExistsAsync(roleName))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                }
+            }
+
+            foreach (var user in userManager.Users.ToList())
+            {
+                var email = user.Email ?? "";
+                if (email.Equals(AppRoles.AgentBootstrapEmail, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (await userManager.IsInRoleAsync(user, AppRoles.Customer))
+                    {
+                        await userManager.RemoveFromRoleAsync(user, AppRoles.Customer);
+                    }
+
+                    if (!await userManager.IsInRoleAsync(user, AppRoles.Agent))
+                    {
+                        await userManager.AddToRoleAsync(user, AppRoles.Agent);
+                    }
+
+                    continue;
+                }
+
+                var roles = await userManager.GetRolesAsync(user);
+                if (roles.Count == 0)
+                {
+                    await userManager.AddToRoleAsync(user, AppRoles.Customer);
+                }
+            }
         }
     }
 }

@@ -27,6 +27,8 @@ namespace HouseRentingSystemApi.Data
 
         public DbSet<Category> Categories { get; set; }
 
+        public DbSet<HouseReservation> HouseReservations { get; set; }
+
         //protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         //{
         //    if (!optionsBuilder.IsConfigured)
